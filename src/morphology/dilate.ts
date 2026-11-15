@@ -3,6 +3,8 @@ import { Mask } from '../Mask.ts';
 import { checkKernel } from '../utils/validators/checkKernel.ts';
 import checkProcessable from '../utils/validators/checkProcessable.ts';
 
+import { reduceKernelNeighborhood } from './utils/reduceKernelNeighborhood.ts';
+
 export interface DilateOptions {
   /**
    * Matrix with odd dimensions (e.g. 1 by 3). The kernel can only have ones and zeros.
@@ -101,30 +103,16 @@ export function dilate(
 }
 
 function dilateGrey(image: Image, newImage: Image, kernel: number[][]): Image {
-  const kernelWidth = kernel[0].length;
-  const kernelHeight = kernel.length;
-  const radiusX = (kernelWidth - 1) / 2;
-  const radiusY = (kernelHeight - 1) / 2;
   for (let row = 0; row < image.height; row++) {
     for (let column = 0; column < image.width; column++) {
-      let max = 0;
-      for (let kernelRow = 0; kernelRow < kernelHeight; kernelRow++) {
-        for (let kernelColumn = 0; kernelColumn < kernelWidth; kernelColumn++) {
-          if (kernel[kernelRow][kernelColumn] !== 1) continue;
-          const currentColumn = kernelColumn - radiusX + column;
-          const currentRow = kernelRow - radiusY + row;
-          if (
-            currentColumn < 0 ||
-            currentRow < 0 ||
-            currentColumn >= image.width ||
-            currentRow >= image.height
-          ) {
-            continue;
-          }
-          const value = image.getValue(currentColumn, currentRow, 0);
-          if (value > max) max = value;
-        }
-      }
+      const max = reduceKernelNeighborhood(
+        image,
+        kernel,
+        column,
+        row,
+        0,
+        Math.max,
+      );
       newImage.setValue(column, row, 0, max);
     }
   }
@@ -179,33 +167,16 @@ function dilateGreyOnlyOnes(
 }
 
 function dilateMask(mask: Mask, newMask: Mask, kernel: number[][]): Mask {
-  const kernelWidth = kernel[0].length;
-  const kernelHeight = kernel.length;
-  const radiusX = (kernelWidth - 1) / 2;
-  const radiusY = (kernelHeight - 1) / 2;
   for (let row = 0; row < mask.height; row++) {
     for (let column = 0; column < mask.width; column++) {
-      let max = 0;
-      for (let kernelRow = 0; kernelRow < kernelHeight; kernelRow++) {
-        for (let kernelColumn = 0; kernelColumn < kernelWidth; kernelColumn++) {
-          if (kernel[kernelRow][kernelColumn] !== 1) continue;
-          const currentColumn = kernelColumn - radiusX + column;
-          const currentRow = kernelRow - radiusY + row;
-          if (
-            currentRow < 0 ||
-            currentColumn < 0 ||
-            currentColumn >= mask.width ||
-            currentRow >= mask.height
-          ) {
-            continue;
-          }
-          const value = mask.getBit(currentColumn, currentRow);
-          if (value === 1) {
-            max = 1;
-            break;
-          }
-        }
-      }
+      const max = reduceKernelNeighborhood(
+        mask,
+        kernel,
+        column,
+        row,
+        0,
+        Math.max,
+      );
       if (max === 1) {
         newMask.setBit(column, row, 1);
       }
